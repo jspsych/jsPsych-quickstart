@@ -6,20 +6,8 @@
  * Psychology: Learning, Memory, and Cognition, 28(3), 458.
  * 
  * Josh de Leeuw
- * February 2014
  * 
- * REQUIRES rapaheljs (www.raphaeljs.com)
- * 
- * parameters:
- *      stimuli: array of paths to images. will be shown in the order declared in array
- *      timing_cycle: how long for an image to complete an animation cycle
- *      canvas_size: array [width, height] - how big to draw the area
- *      image_size: array [width, height] - how big to draw the stimuli
- *      initial_direction: "left" or "right" - which way to move the first image
- *      occlude_center: if true, draw a rectangle in the center to occlude the swaps between images
- *      timing_pre_movement: how long to wait before the first image starts moving
- *      timing_post_trial: how long to show blank screen after trial
- *      data: the optional data object
+ * documentation: https://github.com/jodeleeuw/jsPsych/wiki/jspsych-vsl-animate-occlusion
  * 
  */
 
@@ -29,6 +17,7 @@
         var plugin = {};
 
         plugin.create = function(params) {
+            
             var trials = new Array(1);
 
             trials[0] = {};
@@ -39,6 +28,8 @@
             trials[0].image_size = params.image_size || [100, 100];
             trials[0].initial_direction = params.initial_direction || "left";
             trials[0].occlude_center = (typeof params.occlude_center === 'undefined') ? true : params.occlude_center;
+            trials[0].choices = params.choices || []; // spacebar
+            // timing
             trials[0].timing_post_trial = (typeof params.timing_post_trial === 'undefined') ? 1000 : params.timing_post_trial;
             trials[0].timing_pre_movement = (typeof params.timing_pre_movement === 'undefined') ? 500 : params.timing_pre_movement;
             //trials[0].prompt = (typeof params.prompt === 'undefined') ? "" : params.prompt;
@@ -48,6 +39,15 @@
         };
 
         plugin.trial = function(display_element, block, trial, part) {
+            
+            // if any trial variables are functions
+            // this evaluates the function and replaces
+            // it with the output of the function
+            trial = jsPsych.pluginAPI.normalizeTrialVariables(trial);
+            
+            // variable to keep track of timing info and responses
+            var start_time = 0;
+            var responses = [];
 
             var directions = [
                 [{
@@ -99,6 +99,8 @@
                         src: i
                     });
                     
+                    // start timer for this trial
+                    start_time = (new Date()).getTime();
                 }
             }
             
@@ -118,6 +120,17 @@
                     fill: "#000"
                 });
             }
+            
+            // add key listener
+            var after_response = function(info){
+                responses.push({
+                    key: info.key,
+                    stimulus: which_image - 1,
+                    rt: info.rt
+                });
+            }
+            
+            key_listener = jsPsych.pluginAPI.getKeyboardResponse(after_response, trial.choices, 'date', true);
 
             if (trial.timing_pre_movement > 0) {
                 setTimeout(function() {
@@ -132,10 +145,13 @@
                 
                 display_element.html('');
                 
+                jsPsych.pluginAPI.cancelKeyboardResponse(key_listener);
+                
                 block.writeData($.extend({}, {
                     "trial_type": "vsl-animate-occlusion",
                     "trial_index": block.trial_idx,
-                    "stimuli": JSON.stringify(trial.stims)
+                    "stimuli": JSON.stringify(trial.stims),
+                    "responses": JSON.stringify(responses)
                 }, trial.data));
 
                 if (trial.timing_post_trial > 0) {

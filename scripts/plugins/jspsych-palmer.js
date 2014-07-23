@@ -1,4 +1,5 @@
-/** jspsych-palmer
+/** 
+ * jspsych-palmer
  * Josh de Leeuw (October 2013)
  * 
  * a jspsych plugin for presenting and querying about stimuli modeled after
@@ -10,21 +11,7 @@
  * Goldstone, R. L., Rogosky, B. J., Pevtzow, R., & Blair, M. (2005). Perceptual and semantic reorganization during category learning. 
  * In H. Cohen & C. Lefebvre (Eds.) Handbook of Categorization in Cognitive Science. (pp. 651-678). Amsterdam: Elsevier.
  *
- * NOTE: This plugin requires the Raphaeljs library for manipulating vector graphics (SVG). Download at http://www.raphaeljs.com
- * 
- * parameters:
- *      configurations: array of arrays. inner most array should be an array of 1s and 0s, where 1s represent the
- *                      presence of a line segment, and 0s represent the absence.
- *      editable:       set to true if you want the subject to be able to change the configuration by interacting
- *                      with the stimulus. (click two circles to toggle the line between them).
- *      show_feedback:  set to true to show corrective feedback when trial is editable.
- *      grid_spacing:   distance in pixels between the circles.
- *      square_Size:    how many circles per row/column.
- *      timing_item:    how long to show the stimulus for. (only matters when editable is false)
- *      timing_post_trial:  how long to show blank screen after trial.
- *      timing_feedback:    how long to show corrective feedback for.
- *      prompt:         optional html string to show during stimulus presentation
- *      data:           optional data object
+ * documentation: https://github.com/jodeleeuw/jsPsych/wiki/jspsych-palmer
  *
  */
 
@@ -34,6 +21,9 @@
         var plugin = {};
 
         plugin.create = function(params) {
+            
+            params = jsPsych.pluginAPI.enforceArray(params, ['data']);
+            
             var trials = [];
             for (var i = 0; i < params.configurations.length; i++) {
                 var trial = {
@@ -57,6 +47,11 @@
         };
 
         plugin.trial = function(display_element, block, trial, part) {
+
+            // if any trial variables are functions
+            // this evaluates the function and replaces
+            // it with the output of the function
+            trial = jsPsych.pluginAPI.normalizeTrialVariables(trial);
 
             // variables to keep track of user interaction
             var start_circle = -1;
@@ -322,6 +317,108 @@
             }
 
 
+        };
+        
+        // method for drawing palmer stimuli.
+        // returns the string description of svg element containing the stimulus
+        // requires raphaeljs library -> www.raphaeljs.com
+        
+        plugin.generate_stimulus = function(square_size, grid_spacing, circle_radius, configuration) {
+
+            // create a div to hold the generated svg object
+            var stim_div = $('body').append('<div id="jspsych-palmer-temp-stim"></div>');
+
+            var size = grid_spacing * (square_size + 1);
+
+            // create the svg raphael object
+            var paper = Raphael("jspsych-palmer-temp-stim", size, size);
+
+            // create the circles at the vertices.
+            var circles = [];
+            var node_idx = 0;
+            for (var i = 1; i <= square_size; i++) {
+                for (var j = 1; j <= square_size; j++) {
+                    var circle = paper.circle(grid_spacing * j, grid_spacing * i, circle_radius);
+                    circle.attr("fill", "#000").attr("stroke-width", "0").attr("stroke", "#000").data("node", node_idx);
+                    node_idx++;
+                    circles.push(circle);
+                }
+            }
+
+            // create all possible lines that connect circles
+            var horizontal_lines = [];
+            var vertical_lines = [];
+            var backslash_lines = [];
+            var forwardslash_lines = [];
+
+            for (var i = 0; i < square_size; i++) {
+                for (var j = 0; j < square_size; j++) {
+                    var current_item = (i * square_size) + j;
+                    // add horizontal connections
+                    if (j < (square_size - 1)) {
+                        horizontal_lines.push([current_item, current_item + 1]);
+                    }
+                    // add vertical connections
+                    if (i < (square_size - 1)) {
+                        vertical_lines.push([current_item, current_item + square_size]);
+                    }
+                    // add diagonal backslash connections
+                    if (i < (square_size - 1) && j < (square_size - 1)) {
+                        backslash_lines.push([current_item, current_item + square_size + 1]);
+                    }
+                    // add diagonal forwardslash connections
+                    if (i < (square_size - 1) && j > 0) {
+                        forwardslash_lines.push([current_item, current_item + square_size - 1]);
+                    }
+                }
+            }
+
+            var lines = horizontal_lines.concat(vertical_lines).concat(backslash_lines).concat(forwardslash_lines);
+
+            // actually draw the lines
+            var lineIsVisible = [];
+            var lineElements = [];
+
+            for (var i = 0; i < lines.length; i++) {
+                var line = paper.path("M" + circles[lines[i][0]].attr("cx") + " " + circles[lines[i][0]].attr("cy") + "L" + circles[lines[i][1]].attr("cx") + " " + circles[lines[i][1]].attr("cy")).attr("stroke-width", "8").attr("stroke", "#000");
+                line.hide();
+                lineElements.push(line);
+                lineIsVisible.push(0);
+            }
+
+            // define some helper functions to toggle lines on and off
+
+            // this function turns a line on/off based on the index (the_line)
+            function toggle_line(the_line) {
+                if (the_line > -1) {
+                    if (lineIsVisible[the_line] === 0) {
+                        lineElements[the_line].show();
+                        lineElements[the_line].toBack();
+                        lineIsVisible[the_line] = 1;
+                    }
+                    else {
+                        lineElements[the_line].hide();
+                        lineElements[the_line].toBack();
+                        lineIsVisible[the_line] = 0;
+                    }
+                }
+            }
+
+            // displays the line wherever there
+            // is a 1 in the array.
+            // showConfiguration(configuration) 
+            for (var i = 0; i < configuration.length; i++) {
+                if (configuration[i] == 1) {
+                    toggle_line(i);
+                }
+            }
+
+
+            var svg = $("#jspsych-palmer-temp-stim").html();
+
+            $('#jspsych-palmer-temp-stim').remove();
+
+            return svg;
         };
 
         return plugin;
