@@ -9,9 +9,11 @@ Instructions
 
 2. After you are logged into your account, click the "fork" button near the top right corner of the page. This will automaticaly copy the repository into your GitHub account. Once the copy is complete, you will be sent directly to your copy of this repository.
 
-3. You can try the test experiment by going to http://[your GitHub username].github.io/jsPsych-quickstart/. It can take a few minutes for GitHub to create this page after you fork the repository the first time, so you may need to wait up to 10 minutes before this works. 
+3. At this point, you must make a small change to the repository to trigger a fresh build of the website. Any change will work. For example, you could change the information in the `<title></title>` section of index.html to give your experiment a new title. 
 
-That's all! You can edit the files in the repository and the changes will show up immediately at the above URL. 
+4. After you have made a change, you can try the test experiment by going to http://[your GitHub username].github.io/jsPsych-quickstart/. It can take a few minutes for GitHub to create this page the first time, so you may need to wait up to 10 minutes before this works. 
+
+That's all! Once the website is working, you can edit the files in the repository and the changes will show up immediately at the above URL. 
 
 #### A few more advanced notes
 
