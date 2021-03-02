@@ -1,141 +1,103 @@
 /**
  * jsPsych plugin for showing scenes that mimic the experiments described in
- * 
- * Fiser, J., & Aslin, R. N. (2001). Unsupervised statistical learning of 
- * higher-order spatial structures from visual scenes. Psychological science, 
+ *
+ * Fiser, J., & Aslin, R. N. (2001). Unsupervised statistical learning of
+ * higher-order spatial structures from visual scenes. Psychological science,
  * 12(6), 499-504.
- * 
+ *
  * Josh de Leeuw
- * 
- * documentation: https://github.com/jodeleeuw/jsPsych/wiki/jspsych-vsl-grid-scene
- * 
+ *
+ * documentation: docs.jspsych.org
+ *
  */
 
-(function($) {
-    jsPsych['vsl-grid-scene'] = (function() {
+jsPsych.plugins['vsl-grid-scene'] = (function() {
 
-        var plugin = {};
+  var plugin = {};
 
-        plugin.create = function(params) {
-            
-            params = jsPsych.pluginAPI.enforceArray(params, ['data'])
-            var trials = new Array(params.stimuli.length);
-            for (var i = 0; i < trials.length; i++) {
-                trials[i] = {};
-                trials[i].type = "vsl-grid-scene";
-                trials[i].stimuli = params.stimuli[i];
-                trials[i].image_size = params.image_size || [100, 100];
-                trials[i].timing_post_trial = (typeof params.timing_post_trial === 'undefined') ? 1000 : params.timing_post_trial;
-                trials[i].timing_duration = (typeof params.timing_duration === 'undefined') ? 2000 : params.timing_duration;
-                //trials[i].prompt = (typeof params.prompt === 'undefined') ? "" : params.prompt;
-                trials[i].data = (typeof params.data === 'undefined') ? {} : params.data;
-            }
-            return trials;
-        };
+  jsPsych.pluginAPI.registerPreload('vsl-grid-scene', 'stimuli', 'image');
 
-        plugin.trial = function(display_element, block, trial, part) {
-            
-            // if any trial variables are functions
-            // this evaluates the function and replaces
-            // it with the output of the function
-            trial = jsPsych.pluginAPI.normalizeTrialVariables(trial);
+  plugin.info = {
+    name: 'vsl-grid-scene',
+    description: '',
+    parameters: {
+      stimuli: {
+        type: jsPsych.plugins.parameterType.IMAGE,
+        pretty_name: 'Stimuli',
+        array: true,
+        default: undefined,
+        description: 'An array that defines a grid.'
+      },
+      image_size: {
+        type: jsPsych.plugins.parameterType.INT,
+        pretty_name: 'Image size',
+        array: true,
+        default: [100,100],
+        description: 'Array specifying the width and height of the images to show.'
+      },
+      trial_duration: {
+        type: jsPsych.plugins.parameterType.INT,
+        pretty_name: 'Trial duration',
+        default: 2000,
+        description: 'How long to show the stimulus for in milliseconds.'
+      }
+    }
+  }
 
-            display_element.html(plugin.generate_stimulus(trial.stimuli, trial.image_size));
+  plugin.trial = function(display_element, trial) {
 
-            setTimeout(function() {
-                endTrial();
-            }, trial.timing_duration);
+    display_element.innerHTML = plugin.generate_stimulus(trial.stimuli, trial.image_size);
 
-            function endTrial() {
+    jsPsych.pluginAPI.setTimeout(function() {
+      endTrial();
+    }, trial.trial_duration);
 
-                display_element.html('');
+    function endTrial() {
 
-                block.writeData($.extend({}, {
-                    "trial_type": "vsl-grid-scene",
-                    "trial_index": block.trial_idx,
-                    "stimuli": JSON.stringify(trial.stimuli)
-                }, trial.data));
+      display_element.innerHTML = '';
 
-                if (trial.timing_post_trial > 0) {
-                    setTimeout(function() {
-                        block.next();
-                    }, trial.timing_post_trial);
-                }
-                else {
-                    block.next();
-                }
-            }
-        };
+      var trial_data = {
+        stimulus: trial.stimuli
+      };
 
-        plugin.generate_stimulus = function(pattern, image_size) {
-            var nrows = pattern.length;
-            var ncols = pattern[0].length;
+      jsPsych.finishTrial(trial_data);
+    }
+  };
 
-            // create blank element to hold code that we generate
-            $('body').append($('<div>', {
-                id: 'jspsych-vsl-grid-scene-dummy',
-                css: {
-                    display: 'none'
-                }
-            }));
+  plugin.generate_stimulus = function(pattern, image_size) {
+    var nrows = pattern.length;
+    var ncols = pattern[0].length;
 
-            // create table
-            $('#jspsych-vsl-grid-scene-dummy').append($('<table>', {
-                id: 'jspsych-vsl-grid-scene-table',
-                css: {
-                    'border-collapse': 'collapse',
-                    'margin-left': 'auto',
-                    'margin-right': 'auto'
-                }
-            }));
+    // create blank element to hold code that we generate
+    var html = '<div id="jspsych-vsl-grid-scene-dummy" css="display: none;">';
 
-            for (var row = 0; row < nrows; row++) {
-                $("#jspsych-vsl-grid-scene-table").append($('<tr>', {
-                    id: 'jspsych-vsl-grid-scene-table-row-' + row,
-                    css: {
-                        height: image_size[1] + "px"
-                    }
-                }));
-                for (var col = 0; col < ncols; col++) {
-                    $("#jspsych-vsl-grid-scene-table-row-" + row).append($('<td>', {
-                        id: 'jspsych-vsl-grid-scene-table-' + row + '-' + col,
-                        css: {
-                            padding: image_size[1] / 10 + "px " + image_size[0] / 10 + "px",
-                            border: '1px solid #555'
-                        }
-                    }));
-                    $('#jspsych-vsl-grid-scene-table-' + row + '-' + col).append($('<div>', {
-                        id: 'jspsych-vsl-grid-scene-table-cell-' + row + '-' + col,
-                        css: {
-                            width: image_size[0] + "px",
-                            height: image_size[1] + "px"
-                        }
-                    }));
-                }
-            }
+    // create table
+    html += '<table id="jspsych-vsl-grid-scene table" '+
+      'style="border-collapse: collapse; margin-left: auto; margin-right: auto;">';
 
+    for (var row = 0; row < nrows; row++) {
+      html += '<tr id="jspsych-vsl-grid-scene-table-row-'+row+'" css="height: '+image_size[1]+'px;">';
 
-            for (var row = 0; row < nrows; row++) {
-                for (var col = 0; col < ncols; col++) {
-                    if (pattern[row][col] !== 0) {
-                        $('#jspsych-vsl-grid-scene-table-cell-' + row + '-' + col).append($('<img>', {
-                            src: pattern[row][col],
-                            css: {
-                                width: image_size[0] + "px",
-                                height: image_size[1] + "px",
-                            }
-                        }));
-                    }
-                }
-            }
-            
-            var html_out =  $('#jspsych-vsl-grid-scene-dummy').html();
-            $('#jspsych-vsl-grid-scene-dummy').remove();
-             
-            return html_out;
+      for (var col = 0; col < ncols; col++) {
+        html += '<td id="jspsych-vsl-grid-scene-table-' + row + '-' + col +'" '+
+          'style="padding: '+ (image_size[1] / 10) + 'px ' + (image_size[0] / 10) + 'px; border: 1px solid #555;">'+
+          '<div id="jspsych-vsl-grid-scene-table-cell-' + row + '-' + col + '" style="width: '+image_size[0]+'px; height: '+image_size[1]+'px;">';
+        if (pattern[row][col] !== 0) {
+          html += '<img '+
+            'src="'+pattern[row][col]+'" style="width: '+image_size[0]+'px; height: '+image_size[1]+'"></img>';
+        }
+        html += '</div>';
+        html += '</td>';
+      }
+      html += '</tr>';
+    }
 
-        };
+    html += '</table>';
+    html += '</div>';
 
-        return plugin;
-    })();
-})(jQuery);
+    return html;
+
+  };
+
+  return plugin;
+})();
