@@ -1,79 +1,120 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
-    
-    <head>
-        <title>My experiment</title>
-        <!-- Load jQuery -->
-        <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
-        <!-- Load the jspsych library and plugins -->
-        <script src="scripts/jspsych.js"></script>
-        <script src="scripts/plugins/jspsych-text.js"></script>
-        <script src="scripts/plugins/jspsych-single-stim.js"></script>
-        <!-- Load the stylesheet -->
-        <link href="css/jspsych.css" type="text/css" rel="stylesheet"></link>
-    </head>
-    
-    <body>
-        <div id="jspsych_target"></div>
-    </body>
-    
-    <script type="text/javascript">
-        // Experiment parameters
-        var n_trials_per_stimulus = 5;
-        
-        // Experiment Instructions
-        var welcome_message = '<div id="instructions"><p>Welcome to the experiment. Press enter to begin.</p></div>';
-        
-        var instructions = '<div id="instructions"><p>You will see a series of images that look similar to this:</p>\
-            <p><img src="img/incongruent_right.gif"></p><p>Press the arrow key that corresponds to the direction that\
-            the middle arrow is pointing. For example, in this case you would press the right arrow key.</p>\
-            <p>Press enter to start.</p>';
 
-        var debrief = '<div id="instructions"><p>Thank you for participating! Press enter to see the data.</p></div>';
+<head>
+    <title>My experiment</title>
+    <script src="scripts/jspsych.js"></script>
+    <script src="scripts/plugins/jspsych-html-keyboard-response.js"></script>
+    <script src="scripts/plugins/jspsych-image-keyboard-response.js"></script>
+    <script src="scripts/plugins/jspsych-preload.js"></script>
+    <link rel="stylesheet" href="css/jspsych.css">
+</head>
 
-        // Generating Random Order for Stimuli
-		
-		var stimuli = [
-			{image: "img/congruent_left.gif", data: { stimulus_type: "congruent" }}, 
-			{image: "img/congruent_right.gif", data: { stimulus_type: "congruent" }},
-			{image: "img/incongruent_left.gif", data: { stimulus_type: "incongruent" }},
-			{image: "img/incongruent_right.gif", data: { stimulus_type: "incongruent" }},
-		];
-        
-		var trial_info = jsPsych.randomization.repeat(stimuli, n_trials_per_stimulus, true);
-        
-        // Define experiment blocks
-        var instruction_block = {
-                type: "text",
-                text: [welcome_message, instructions],
-                timing_post_trial: 1500
-            };
-        
-        var test_block = {
-                type: "single-stim",
-                stimuli: trial_info.image,
-                choices: [37, 39],
-                data: trial_info.data,
-				timing_post_trial: function() {
-					return Math.floor(Math.random()*1000)+1000;
-				}
-            };
-            
-        var debrief_block = {
-                type: "text",
-                text: [debrief]
-            };
-            
-		jsPsych.preloadImages(trial_info.image, function() { start_experiment(); });
-		
-		function start_experiment() {
-			jsPsych.init({
-				display_element: $('#jspsych_target'),
-				experiment_structure: [instruction_block, test_block, debrief_block],
-				on_finish: function(data) {
-					jsPsych.dataAPI.displayData();
-				}
-			});
-		}
-    </script>
+<body></body>
+<script>
+    /* create timeline */
+    var timeline = [];
+
+    /* preload images */
+    var preload = {
+        type: 'preload',
+        images: ['img/blue.png', 'img/orange.png']
+    }
+    timeline.push(preload);
+
+    /* define welcome message trial */
+    var welcome = {
+        type: "html-keyboard-response",
+        stimulus: "Welcome to the experiment. Press any key to begin."
+    };
+    timeline.push(welcome);
+
+    /* define instructions trial */
+    var instructions = {
+        type: "html-keyboard-response",
+        stimulus: `
+      <p>In this experiment, a circle will appear in the center
+      of the screen.</p><p>If the circle is <strong>blue</strong>,
+      press the letter F on the keyboard as fast as you can.</p>
+      <p>If the circle is <strong>orange</strong>, press the letter J
+      as fast as you can.</p>
+      <div style='width: 700px;'>
+      <div style='float: left;'><img src='img/blue.png'></img>
+      <p class='small'><strong>Press the F key</strong></p></div>
+      <div class='float: right;'><img src='img/orange.png'></img>
+      <p class='small'><strong>Press the J key</strong></p></div>
+      </div>
+      <p>Press any key to begin.</p>
+    `,
+        post_trial_gap: 2000
+    };
+    timeline.push(instructions);
+
+    /* test trials */
+    var test_stimuli = [
+        { stimulus: "img/blue.png", correct_response: 'f' },
+        { stimulus: "img/orange.png", correct_response: 'j' }
+    ];
+
+    var fixation = {
+        type: 'html-keyboard-response',
+        stimulus: '<div style="font-size:60px;">+</div>',
+        choices: jsPsych.NO_KEYS,
+        trial_duration: function () {
+            return jsPsych.randomization.sampleWithoutReplacement([250, 500, 750, 1000, 1250, 1500, 1750, 2000], 1)[0];
+        },
+        data: {
+            task: 'fixation'
+        }
+    }
+
+    var test = {
+        type: "image-keyboard-response",
+        stimulus: jsPsych.timelineVariable('stimulus'),
+        choices: ['f', 'j'],
+        data: {
+            task: 'response',
+            correct_response: jsPsych.timelineVariable('correct_response')
+        },
+        on_finish: function (data) {
+            data.correct = jsPsych.pluginAPI.compareKeys(data.response, data.correct_response);
+        }
+    }
+
+    var test_procedure = {
+        timeline: [fixation, test],
+        timeline_variables: test_stimuli,
+        repetitions: 5,
+        randomize_order: true
+    }
+    timeline.push(test_procedure);
+
+    /* define debrief */
+
+    var debrief_block = {
+        type: "html-keyboard-response",
+        stimulus: function () {
+
+            var trials = jsPsych.data.get().filter({ task: 'response' });
+            var correct_trials = trials.filter({ correct: true });
+            var accuracy = Math.round(correct_trials.count() / trials.count() * 100);
+            var rt = Math.round(correct_trials.select('rt').mean());
+
+            return `<p>You responded correctly on ${accuracy}% of the trials.</p>
+      <p>Your average response time was ${rt}ms.</p>
+      <p>Press any key to complete the experiment. Thank you!</p>`;
+
+        }
+    };
+    timeline.push(debrief_block);
+
+    /* start the experiment */
+    jsPsych.init({
+        timeline: timeline,
+        on_finish: function () {
+            jsPsych.data.displayData();
+        }
+    });
+</script>
+
 </html>
